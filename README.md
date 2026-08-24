@@ -7,9 +7,13 @@ is the primary UI language. Full spec: `../CLAUDE_CODE_PROMPT.md`.
 
 ## Status
 
-**Phase 1 — Data layer.** All models, migrations, `django-simple-history` on
-`Task`, Django Admin for every model, `seed_data`. No API, no HTML views, no
-notification engine yet — those are Phases 2–7.
+**Phase 2 — Domain services.** `tasks/services.py` (create, assign,
+`change_status`, `add_update`, `attach_file`), `tasks/selectors.py` (filtering,
+overdue annotation, default ordering), `accounts/permissions.py` (shared role
+predicates), and the three immediate notification triggers from spec §7
+(`assigned`, `reassigned`, `urgent`) in `notifications/services.py`. No API, no
+HTML views yet — those are Phases 3–4. The scheduled `run_task_alerts` job,
+email, and the bell UI are Phase 5.
 
 ## Local setup (dev — SQLite)
 
@@ -76,6 +80,23 @@ Django cannot swap the user model afterward without dropping the database.
   Phase 1 (`accounts/validators.py`, `tasks/validators.py`) instead of
   waiting for their nominal phases, because Django Admin could violate both
   the moment the models existed.
+- **Notification triggers pulled forward**: the three immediate §7 triggers
+  (`assigned`, `reassigned`, `urgent`) were built in Phase 2 alongside
+  `tasks/services.py` instead of waiting for Phase 5, since `change_status`'s
+  own docstring in the spec ends with "fire notifications" — building the
+  triggers now means the service call sites are never rewritten later. The
+  scheduled `run_task_alerts` job, email, and the in-app bell UI are still
+  Phase 5.
+- **Notification dedup is permanent, not just idempotency**: the
+  `UNIQUE(task, user, kind)` constraint that makes the Phase 5 daily job safe
+  to rerun also means a user reassigned to the same task twice only ever gets
+  one `reassigned` row — the second reassignment is silently a no-op on the
+  notification side. This is the spec's own trade-off (§7), noted here so it
+  isn't later mistaken for a bug.
+- **`TaskAdmin.status` is read-only on change**: closes a gap Phase 1 left
+  open — §4 says no admin action may write `status` directly, only
+  `change_status()` may. Still editable on *add*, since a new task's status
+  is just its default `new`.
 
 ## Commands
 
