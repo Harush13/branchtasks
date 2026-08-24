@@ -7,8 +7,9 @@ is the primary UI language. Full spec: `../CLAUDE_CODE_PROMPT.md`.
 
 ## Status
 
-**Phase 0 — Scaffold.** Project skeleton, settings, Docker files, empty apps.
-No models, no views, no API yet — those are Phases 1–7.
+**Phase 1 — Data layer.** All models, migrations, `django-simple-history` on
+`Task`, Django Admin for every model, `seed_data`. No API, no HTML views, no
+notification engine yet — those are Phases 2–7.
 
 ## Local setup (dev — SQLite)
 
@@ -28,8 +29,10 @@ pytest
 python manage.py runserver
 ```
 
-Visit http://127.0.0.1:8000/ — Django's welcome page. http://127.0.0.1:8000/admin/
-is live but empty until Phase 1 adds models and a superuser.
+Visit http://127.0.0.1:8000/admin/ (run `createsuperuser` first). Populate demo
+data with `python manage.py seed_data` — on Windows, prefix with `PYTHONUTF8=1`
+or the Hebrew branch/category names crash on the default `cp1252` console
+encoding.
 
 ## Settings
 
@@ -38,15 +41,18 @@ each import `*` from it and override only what differs (database, `DEBUG`,
 email backend). Select with `DJANGO_SETTINGS_MODULE` in `.env`
 (`manage.py` defaults to `config.settings.dev` if unset).
 
-`AUTH_USER_MODEL = "accounts.User"` is set from the very first migration —
+`AUTH_USER_MODEL = "accounts.User"` was set from the very first migration —
 Django cannot swap the user model afterward without dropping the database.
-`accounts/models.py` currently just extends `AbstractUser`; Phase 1 adds the
-real fields (`full_name`, `phone`, `home_branch`, `role`).
+`accounts/models.py` now carries the full field set from spec §3.2
+(`full_name`, `phone`, `home_branch`, `role`).
 
-## Known deviations from `CLAUDE_CODE_PROMPT.md`, agreed in the Phase 0 session
+## Known deviations from `CLAUDE_CODE_PROMPT.md`, agreed in planning sessions
 
-- **Assignment model**: one `assignee` FK (unchanged) **plus** a `TaskWatcher`
-  M2M for status-change-only subscribers. Not in the original DDL.
+- **Assignment model**: one `assignee` FK (unchanged) **plus** a plain
+  `watchers` M2M on `Task` for status-change-only subscribers. (A dedicated
+  `TaskWatcher` through-model was floated in the Phase 0 session but dropped
+  in Phase 1 — nothing needs per-watch metadata, so a bare M2M is simpler.)
+  Not in the original DDL.
 - **User deactivation**: blocked while the user holds active tasks, rather
   than silently orphaning them.
 - **`due_date`**: optional at creation, as the DDL already implies.
@@ -61,13 +67,25 @@ real fields (`full_name`, `phone`, `home_branch`, `role`).
   doesn't port cleanly is the `he-IL-x-icu` Hebrew collation (§10.4) — that
   gets isolated to one sort helper in `tasks/selectors.py` (Phase 2+) and
   re-verified on real Postgres at Phase 7.
+- **Hebrew status/priority labels**: carried as `TextChoices`/`IntegerChoices`
+  labels on `Task` (not a lookup table like Branch/Category), since the §4
+  state machine already hardcodes the five statuses — a lookup-table row
+  would have no transitions. Satisfies §10.6's "from the model, not
+  gettext" without an extra table.
+- **Deactivation guard and attachment validators**: pulled forward into
+  Phase 1 (`accounts/validators.py`, `tasks/validators.py`) instead of
+  waiting for their nominal phases, because Django Admin could violate both
+  the moment the models existed.
 
 ## Commands
 
 ```bash
-pytest              # run tests
-ruff check .         # lint
-black .              # format
+pytest                          # run tests
+ruff check .                    # lint
+black .                         # format
 python manage.py migrate
 python manage.py createsuperuser
+PYTHONUTF8=1 python manage.py seed_data   # 4 branches, 8 categories, 6 demo users
 ```
+
+Demo user passwords are all `demo1234` (dev only, refused when `DEBUG=False`).
