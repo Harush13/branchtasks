@@ -11,35 +11,9 @@ from accounts.permissions import (
     is_admin,
     is_manager,
 )
-from core.models import Branch, Category
 from tasks.models import Task
 
 pytestmark = pytest.mark.django_db
-
-
-@pytest.fixture
-def branch():
-    return Branch.objects.create(name_he="תל יצחק", name_en="Tel Yitzhak")
-
-
-@pytest.fixture
-def category():
-    return Category.objects.create(name_he="תפעול", name_en="Operations")
-
-
-@pytest.fixture
-def member():
-    return User.objects.create_user(username="member1", password="x", role=User.Role.MEMBER)
-
-
-@pytest.fixture
-def manager():
-    return User.objects.create_user(username="manager1", password="x", role=User.Role.MANAGER)
-
-
-@pytest.fixture
-def admin_user():
-    return User.objects.create_user(username="admin1", password="x", role=User.Role.ADMIN)
 
 
 class TestRoleChecks:
@@ -106,11 +80,16 @@ class TestCanDeleteAttachment:
         attachment = Attachment(task=task, uploaded_by=member, original_name="x.png")
         assert can_delete_attachment(member, attachment) is True
 
-    def test_unrelated_member_cannot_delete(self, branch, category, member, manager):
+    def test_unrelated_member_and_manager_cannot_delete(
+        self, branch, category, member, manager, admin_user
+    ):
+        """§6: uploader-or-admin only — a manager with no stake in the file
+        cannot delete it, unlike the broader manager-can-edit-anything rule."""
         from tasks.models import Attachment
 
         task = Task.objects.create(title="T", branch=branch, category=category, opened_by=member)
         attachment = Attachment(task=task, uploaded_by=member, original_name="x.png")
         other = User.objects.create_user(username="other2", password="x")
         assert can_delete_attachment(other, attachment) is False
-        assert can_delete_attachment(manager, attachment) is True
+        assert can_delete_attachment(manager, attachment) is False
+        assert can_delete_attachment(admin_user, attachment) is True

@@ -11,7 +11,6 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.utils import timezone
 
 from accounts.models import User
-from core.models import Branch, Category
 from notifications.models import Notification
 from tasks.models import Task
 from tasks.services import (
@@ -45,31 +44,6 @@ EXPECTED_LEGAL = {
     ("done", "in_progress"),
     ("cancelled", "in_progress"),
 }
-
-
-@pytest.fixture
-def branch():
-    return Branch.objects.create(name_he="תל יצחק", name_en="Tel Yitzhak")
-
-
-@pytest.fixture
-def category():
-    return Category.objects.create(name_he="תפעול", name_en="Operations")
-
-
-@pytest.fixture
-def member(branch):
-    return User.objects.create_user(username="member1", password="x", role=User.Role.MEMBER)
-
-
-@pytest.fixture
-def manager():
-    return User.objects.create_user(username="manager1", password="x", role=User.Role.MANAGER)
-
-
-@pytest.fixture
-def admin_user():
-    return User.objects.create_user(username="admin1", password="x", role=User.Role.ADMIN)
 
 
 def make_task(branch, category, opener, **kwargs):

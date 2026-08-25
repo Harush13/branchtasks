@@ -78,9 +78,15 @@ def change_status(task, new_status, actor, blocker=None):
 
 @transaction.atomic
 def create_task(actor, *, title, branch, category, **fields):
-    """Any authenticated member may create a task (§5)."""
+    """Any authenticated member may create a task (§5).
+
+    `watchers` is a ManyToManyField — it can't be passed to Task.objects.create()
+    like a normal kwarg (Django raises on direct M2M assignment at construction
+    time), so it's split out and applied via .set() once the row has a PK.
+    """
     assignee = fields.get("assignee")
     priority = fields.get("priority", Task.Priority.NORMAL)
+    watchers = fields.pop("watchers", None)
 
     task = Task.objects.create(
         title=title,
@@ -90,6 +96,8 @@ def create_task(actor, *, title, branch, category, **fields):
         priority=priority,
         **{k: v for k, v in fields.items() if k not in ("priority",)},
     )
+    if watchers:
+        task.watchers.set(watchers)
 
     if assignee:
         notify_assigned(task, actor)
@@ -127,8 +135,14 @@ def update_task_fields(task, actor, **fields):
     if not can_edit_task(actor, task):
         raise PermissionDenied("You may only edit tasks you opened or are assigned to.")
 
+    # `watchers` is a ManyToManyField — setattr() raises on it the same way
+    # Task.objects.create() does (see create_task's docstring); .set() is the
+    # only valid write path once the row already has a PK.
+    watchers = fields.pop("watchers", None)
     for key, value in fields.items():
         setattr(task, key, value)
+    if watchers is not None:
+        task.watchers.set(watchers)
     task.save()
     return task
 

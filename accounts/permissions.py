@@ -42,4 +42,7 @@ def can_view_dashboard(user):
 
 
 def can_delete_attachment(user, attachment):
-    return is_manager(user) or attachment.uploaded_by_id == user.id
+    """§6: DELETE /api/attachments/{id} is uploader-or-admin — narrower than the
+    general manager-can-edit-anything rule, since a manager who never touched
+    the file has no more claim to delete it than any other non-uploader."""
+    return is_admin(user) or attachment.uploaded_by_id == user.id

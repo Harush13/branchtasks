@@ -7,7 +7,6 @@ blocks the admin form — not just the validator function in isolation.
 import pytest
 
 from accounts.models import User
-from core.models import Branch, Category
 from tasks.models import Task
 
 pytestmark = pytest.mark.django_db
@@ -15,19 +14,12 @@ pytestmark = pytest.mark.django_db
 
 @pytest.fixture
 def admin_client_logged_in(client, django_user_model):
+    """A real Django-Admin superuser session — distinct from conftest's
+    admin_client (a role=ADMIN app user on a DRF APIClient), since this file
+    exercises the Django Admin, not the app's own permission tier."""
     admin = django_user_model.objects.create_superuser("admin_smoke", "a@example.com", "x")
     client.force_login(admin)
     return client, admin
-
-
-@pytest.fixture
-def branch():
-    return Branch.objects.create(name_he="תל יצחק", name_en="Tel Yitzhak")
-
-
-@pytest.fixture
-def category():
-    return Category.objects.create(name_he="תפעול", name_en="Operations")
 
 
 def test_create_task_through_admin(admin_client_logged_in, branch, category):

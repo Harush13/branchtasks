@@ -114,8 +114,11 @@ REST_FRAMEWORK = {
     "DEFAULT_FILTER_BACKENDS": [
         "django_filters.rest_framework.DjangoFilterBackend",
     ],
-    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "DEFAULT_PAGINATION_CLASS": "core.pagination.DefaultPagination",
     "PAGE_SIZE": 25,
+    # Translates services.py's Django-native ValidationError/PermissionDenied
+    # into DRF's 400/403 — see config/exceptions.py for why that's needed.
+    "EXCEPTION_HANDLER": "config.exceptions.exception_handler",
 }
 
 LOGIN_URL = "/login/"

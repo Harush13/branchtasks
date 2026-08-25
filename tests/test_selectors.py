@@ -3,27 +3,10 @@ import datetime
 import pytest
 from django.utils import timezone
 
-from accounts.models import User
-from core.models import Branch, Category
 from tasks.models import Task
 from tasks.selectors import annotate_overdue, filter_tasks, order_tasks, task_queryset
 
 pytestmark = pytest.mark.django_db
-
-
-@pytest.fixture
-def branch():
-    return Branch.objects.create(name_he="תל יצחק", name_en="Tel Yitzhak")
-
-
-@pytest.fixture
-def category():
-    return Category.objects.create(name_he="תפעול", name_en="Operations")
-
-
-@pytest.fixture
-def opener():
-    return User.objects.create_user(username="opener", password="x")
 
 
 def make_task(branch, category, opener, **kwargs):
