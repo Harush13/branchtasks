@@ -1,0 +1,28 @@
+<div id="attachments-grid">
+    <form hx-post="{% url 'tasks:add_attachment' task.ref %}" hx-target="#attachments-grid" hx-swap="outerHTML"
+          hx-encoding="multipart/form-data" class="mb-3">
+        {% csrf_token %}
+        <label class="block">
+            <input type="file" name="file" accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx" capture="environment"
+                   required onchange="this.form.requestSubmit()"
+                   class="w-full text-sm rounded-lg border border-dashed border-gray-300 px-3 py-2">
+        </label>
+    </form>
+    {% if attachment_error %}<p class="text-red-600 text-xs mb-2">{{ attachment_error }}</p>{% endif %}
+
+    <div class="grid grid-cols-3 gap-2">
+        {% for attachment in task.attachments.all %}
+        <a href="{{ attachment.file.url }}" target="_blank" class="block border border-gray-200 rounded-lg p-1 text-[11px]">
+            {% if attachment.mime_type|slice:":6" == "image/" %}
+            <img src="{{ attachment.file.url }}" alt="{{ attachment.original_name }}"
+                 class="w-full h-16 object-cover rounded mb-1">
+            {% else %}
+            <div class="w-full h-16 flex items-center justify-center bg-gray-100 rounded mb-1 text-xl">📄</div>
+            {% endif %}
+            <p class="truncate">{{ attachment.original_name }}</p>
+        </a>
+        {% empty %}
+        <p class="col-span-3 text-gray-400 text-sm text-center py-4">אין קבצים מצורפים</p>
+        {% endfor %}
+    </div>
+</div>

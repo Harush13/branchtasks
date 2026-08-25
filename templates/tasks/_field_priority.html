@@ -1,0 +1,15 @@
+{% load task_extras %}
+<div id="field-priority" class="flex items-center gap-2">
+    <span class="text-xs text-gray-500 shrink-0">עדיפות:</span>
+    <form hx-post="{% url 'tasks:set_priority' task.ref %}" hx-target="#field-priority" hx-swap="outerHTML"
+          hx-trigger="change" class="flex-1">
+        {% csrf_token %}
+        <select name="priority" class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm">
+            {% for value, label in task.Priority.choices %}
+            <option value="{{ value }}" {% if value == task.priority %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+        </select>
+    </form>
+    {% include "partials/_priority_badge.html" %}
+    {% if priority_error %}<p class="text-red-600 text-xs w-full">{{ priority_error }}</p>{% endif %}
+</div>

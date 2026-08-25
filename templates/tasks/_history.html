@@ -1,0 +1,13 @@
+<div class="space-y-1 text-xs text-gray-500">
+    {% for record in task.history.all %}
+    <div class="flex items-center justify-between border-b border-gray-50 py-1">
+        <span>{{ record.get_status_display }}{% if record.history_type == "+" %} · נוצרה{% endif %}</span>
+        <span>
+            {% if record.history_user %}{{ record.history_user.full_name|default:record.history_user.username }}{% else %}—{% endif %}
+            · <span dir="ltr">{{ record.history_date|date:"d/m/Y H:i" }}</span>
+        </span>
+    </div>
+    {% empty %}
+    <p class="text-gray-400 text-center py-2">אין היסטוריה</p>
+    {% endfor %}
+</div>

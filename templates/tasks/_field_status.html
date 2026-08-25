@@ -1,0 +1,26 @@
+{% load task_extras %}
+<div id="field-status" x-data="{ status: '' }">
+    <div class="flex items-center gap-2 mb-1">
+        <span class="text-xs text-gray-500">סטטוס:</span>
+        {% include "partials/_status_badge.html" %}
+    </div>
+    <form hx-post="{% url 'tasks:set_status' task.ref %}" hx-target="#field-status" hx-swap="outerHTML" class="space-y-2">
+        {% csrf_token %}
+        <select name="status" x-model="status" class="w-full rounded-lg border border-gray-300 px-2 py-2 text-sm">
+            <option value="">שנה סטטוס...</option>
+            {% legal_transitions task as transitions %}
+            {% for value, label in transitions %}
+            <option value="{{ value }}">{{ label }}</option>
+            {% endfor %}
+        </select>
+        <div x-show="status === 'waiting'" x-cloak>
+            <input type="text" name="blocker" placeholder="מהי הסיבה לעיכוב? (חובה)"
+                   class="w-full rounded-lg border border-gray-300 px-2 py-2 text-sm">
+        </div>
+        <button type="submit" :disabled="!status"
+                class="w-full bg-blue-600 text-white rounded-lg py-2 text-sm font-medium disabled:opacity-40">
+            עדכן סטטוס
+        </button>
+    </form>
+    {% if status_error %}<p class="text-red-600 text-xs mt-1">{{ status_error }}</p>{% endif %}
+</div>

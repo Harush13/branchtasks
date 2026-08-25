@@ -1,0 +1,24 @@
+<div id="updates-thread">
+    <form hx-post="{% url 'tasks:add_update' task.ref %}" hx-target="#updates-thread" hx-swap="outerHTML"
+          class="flex gap-2 mb-3">
+        {% csrf_token %}
+        <input type="text" name="body" placeholder="הוסף עדכון..." required
+               class="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm">
+        <button type="submit" class="bg-blue-600 text-white rounded-lg px-4 text-sm font-medium">שלח</button>
+    </form>
+    {% if update_error %}<p class="text-red-600 text-xs mb-2">{{ update_error }}</p>{% endif %}
+
+    <div class="space-y-2">
+        {% for update in task.updates.all %}
+        <div class="border-b border-gray-100 pb-2 text-sm">
+            <p class="text-gray-800">{{ update.body }}</p>
+            <p class="text-xs text-gray-400 mt-1">
+                {{ update.author.full_name|default:update.author.username }}
+                · {{ update.created_at|date:"d/m/Y H:i" }}
+            </p>
+        </div>
+        {% empty %}
+        <p class="text-gray-400 text-sm text-center py-4">אין עדכונים עדיין</p>
+        {% endfor %}
+    </div>
+</div>

@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load perms %}
+{% block title %}{{ task.ref }} · {{ task.title }}{% endblock %}
+{% block content %}
+
+<div class="mb-3">
+    <p class="text-xs text-gray-400"><span dir="ltr" class="font-mono">{{ task.ref }}</span> · {{ task.branch.name_he }} · {{ task.category.name_he }}</p>
+    <h1 class="text-lg font-bold">{{ task.title }}</h1>
+    {% if task.description %}<p class="text-sm text-gray-600 mt-1 whitespace-pre-line">{{ task.description }}</p>{% endif %}
+</div>
+
+<div class="bg-white border border-gray-200 rounded-lg p-3 space-y-3 mb-4">
+    {% include "tasks/_field_status.html" %}
+
+    {% if task.status == "waiting" and task.blocker %}
+    <p class="text-xs bg-purple-50 text-purple-800 rounded-lg px-2 py-1.5">חסימה: {{ task.blocker }}</p>
+    {% endif %}
+
+    {% include "tasks/_field_priority.html" %}
+    {% include "tasks/_field_assignee.html" %}
+    {% include "tasks/_field_due_date.html" %}
+
+    <p class="text-xs text-gray-400">
+        נפתח ע"י {{ task.opened_by.full_name|default:task.opened_by.username }}
+        · <span dir="ltr">{{ task.created_at|date:"d/m/Y H:i" }}</span>
+    </p>
+</div>
+
+<section class="mb-4">
+    <h2 class="text-sm font-semibold text-gray-700 mb-2">קבצים מצורפים</h2>
+    {% include "tasks/_attachments_grid.html" %}
+</section>
+
+<section class="mb-4">
+    <h2 class="text-sm font-semibold text-gray-700 mb-2">עדכונים</h2>
+    {% include "tasks/_updates_thread.html" %}
+</section>
+
+<section x-data="{ open: false }">
+    <button @click="open = !open" class="text-sm font-semibold text-gray-700 mb-2">
+        היסטוריית שינויים <span x-text="open ? '▲' : '▼'"></span>
+    </button>
+    <div x-cloak x-show="open">
+        {% include "tasks/_history.html" %}
+    </div>
+</section>
+
+{% endblock %}

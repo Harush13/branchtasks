@@ -1,0 +1,25 @@
+<div id="notif-dropdown-content">
+    {% if notifications %}
+    <div class="flex justify-between items-center px-3 py-2 border-b border-gray-100 sticky top-0 bg-white">
+        <span class="font-medium">התראות</span>
+        <button hx-post="{% url 'notifications:read_all' %}" hx-target="#notif-dropdown-content" hx-swap="outerHTML"
+                class="text-blue-600 text-xs">סמן הכל כנקרא</button>
+    </div>
+    {% for n in notifications %}
+    <div class="px-3 py-2 border-b border-gray-50 flex justify-between items-start gap-2">
+        <div class="min-w-0">
+            <p class="truncate">{{ n.body }}</p>
+            <p class="text-xs text-gray-400"><span dir="ltr">{{ n.created_at|date:"d/m/Y H:i" }}</span></p>
+        </div>
+        <button hx-post="{% url 'notifications:mark_read' n.id %}" hx-target="#notif-dropdown-content" hx-swap="outerHTML"
+                class="text-xs text-gray-400 shrink-0" title="סמן כנקרא">✓</button>
+    </div>
+    {% endfor %}
+    {% else %}
+    <p class="p-4 text-gray-400 text-center">אין התראות חדשות</p>
+    {% endif %}
+</div>
+<span id="notif-badge" hx-swap-oob="true"
+      class="absolute -top-0.5 -end-0.5 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-red-600 text-white text-[10px] leading-[1.1rem] text-center {% if not notifications %}hidden{% endif %}">
+    <span dir="ltr">{{ notifications|length }}</span>
+</span>

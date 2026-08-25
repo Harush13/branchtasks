@@ -1,0 +1,21 @@
+{% load perms %}
+<div id="field-assignee" class="flex items-center gap-2">
+    <span class="text-xs text-gray-500 shrink-0">אחראי:</span>
+    {% if user|can_reassign %}
+    <form hx-post="{% url 'tasks:set_assignee' task.ref %}" hx-target="#field-assignee" hx-swap="outerHTML"
+          hx-trigger="change" class="flex-1">
+        {% csrf_token %}
+        <select name="assignee" class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm">
+            <option value="">ללא אחראי</option>
+            {% for u in assignable_users %}
+            <option value="{{ u.id }}" {% if task.assignee_id == u.id %}selected{% endif %}>{{ u.full_name|default:u.username }}</option>
+            {% endfor %}
+        </select>
+    </form>
+    {% else %}
+    <span class="text-sm">
+        {% if task.assignee %}{{ task.assignee.full_name|default:task.assignee.username }}{% else %}ללא אחראי{% endif %}
+    </span>
+    {% endif %}
+    {% if assignee_error %}<p class="text-red-600 text-xs w-full">{{ assignee_error }}</p>{% endif %}
+</div>

@@ -51,6 +51,25 @@ class TestTaskCreate:
         assert resp.status_code == 400
 
 
+class TestTaskDetail:
+    """Regression test for a real bug: prefetch_related("history") raised
+    ValueError because django-simple-history's `history` isn't a genuine
+    reverse FK — nothing in Phase 3 originally exercised GET /api/tasks/{ref}
+    to catch it."""
+
+    def test_retrieve_renders_updates_attachments_history(
+        self, member_client, member, branch, category
+    ):
+        task = make_task(branch, category, member)
+        task.updates.create(author=member, body="a comment")
+        resp = member_client.get(f"/api/tasks/{task.ref}")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["ref"] == task.ref
+        assert len(body["updates"]) == 1
+        assert body["history"]
+
+
 class TestComments:
     def test_add_comment(self, member_client, member, branch, category):
         task = make_task(branch, category, member)

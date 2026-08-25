@@ -1,0 +1,53 @@
+<form id="task-filter-form"
+      hx-get="{{ list_url }}"
+      hx-target="#task-list-results"
+      hx-push-url="true"
+      hx-trigger="change, search"
+      class="bg-white border border-gray-200 rounded-lg p-3 mb-4 space-y-3">
+
+    <input type="search" name="q" value="{{ filters.q|default:'' }}" placeholder="חיפוש חופשי..."
+           hx-trigger="keyup changed delay:400ms, search"
+           class="w-full rounded-lg border border-gray-300 px-3 py-2 text-base">
+
+    <div class="grid {% if hide_assignee %}grid-cols-1{% else %}grid-cols-2{% endif %} gap-2">
+        <select name="branch" class="rounded-lg border border-gray-300 px-2 py-2 text-sm">
+            <option value="">כל הסניפים</option>
+            {% for b in branches %}
+            <option value="{{ b.id }}" {% if filters.branch == b.id|stringformat:"s" %}selected{% endif %}>{{ b.name_he }}</option>
+            {% endfor %}
+        </select>
+
+        {% if not hide_assignee %}
+        <select name="assignee" class="rounded-lg border border-gray-300 px-2 py-2 text-sm">
+            <option value="">כל האחראים</option>
+            {% for u in assignable_users %}
+            <option value="{{ u.id }}" {% if filters.assignee == u.id|stringformat:"s" %}selected{% endif %}>{{ u.full_name|default:u.username }}</option>
+            {% endfor %}
+        </select>
+        {% endif %}
+    </div>
+
+    <select name="priority_min" class="w-full rounded-lg border border-gray-300 px-2 py-2 text-sm">
+        <option value="">כל העדיפויות</option>
+        <option value="4" {% if filters.priority_min == "4" %}selected{% endif %}>דחופה בלבד</option>
+        <option value="3" {% if filters.priority_min == "3" %}selected{% endif %}>גבוהה ומעלה</option>
+        <option value="2" {% if filters.priority_min == "2" %}selected{% endif %}>רגילה ומעלה</option>
+    </select>
+
+    {% if not hide_status %}
+    <div class="flex flex-wrap gap-x-4 gap-y-2 text-sm">
+        {% for value, label in status_choices %}
+        <label class="inline-flex items-center gap-1">
+            <input type="checkbox" name="status" value="{{ value }}"
+                   {% if value in filters.status %}checked{% endif %}>
+            {{ label }}
+        </label>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <label class="inline-flex items-center gap-1 text-sm font-medium text-red-700">
+        <input type="checkbox" name="overdue" value="1" {% if filters.overdue %}checked{% endif %}>
+        רק באיחור
+    </label>
+</form>

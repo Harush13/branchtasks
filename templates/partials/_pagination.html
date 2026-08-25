@@ -1,0 +1,23 @@
+{% if page_obj.paginator.num_pages > 1 %}
+<nav class="flex items-center justify-between mt-4 text-sm text-gray-600" aria-label="עימוד">
+    {% if page_obj.has_previous %}
+    <a href="?{{ querystring }}&page={{ page_obj.previous_page_number }}"
+       hx-get="?{{ querystring }}&page={{ page_obj.previous_page_number }}"
+       hx-target="#task-list-results" hx-push-url="true"
+       class="px-3 py-1.5 rounded-md border border-gray-300">הקודם</a>
+    {% else %}
+    <span></span>
+    {% endif %}
+
+    <span>עמוד {{ page_obj.number }} מתוך {{ page_obj.paginator.num_pages }}</span>
+
+    {% if page_obj.has_next %}
+    <a href="?{{ querystring }}&page={{ page_obj.next_page_number }}"
+       hx-get="?{{ querystring }}&page={{ page_obj.next_page_number }}"
+       hx-target="#task-list-results" hx-push-url="true"
+       class="px-3 py-1.5 rounded-md border border-gray-300">הבא</a>
+    {% else %}
+    <span></span>
+    {% endif %}
+</nav>
+{% endif %}

@@ -1,0 +1,11 @@
+<div id="field-due-date" class="flex items-center gap-2">
+    <span class="text-xs text-gray-500 shrink-0">תאריך יעד:</span>
+    <form hx-post="{% url 'tasks:set_due_date' task.ref %}" hx-target="#field-due-date" hx-swap="outerHTML"
+          hx-trigger="change" class="flex-1">
+        {% csrf_token %}
+        <input type="date" name="due_date" value="{{ task.due_date|date:'Y-m-d' }}"
+               class="w-full rounded-lg border border-gray-300 px-2 py-1.5 text-sm" dir="ltr">
+    </form>
+    {% if task.overdue %}<span class="text-red-700 text-xs font-semibold">⚠ באיחור</span>{% endif %}
+    {% if due_date_error %}<p class="text-red-600 text-xs w-full">{{ due_date_error }}</p>{% endif %}
+</div>
