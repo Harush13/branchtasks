@@ -3,6 +3,8 @@ Every read query for tasks (spec §12). §6's list endpoint parameters and the
 §3.3 "overdue is never a stored column" rule both live here.
 """
 
+import datetime
+
 from django.db import connection
 from django.db.models import BooleanField, Case, Q, When
 from django.utils import timezone
@@ -76,6 +78,18 @@ def filter_tasks(
     if q:
         qs = qs.filter(Q(title__icontains=q) | Q(description__icontains=q))
     return qs
+
+
+def tasks_due_soon(days=2):
+    """§7 scheduled job: active tasks due in exactly `days` days."""
+    target = timezone.localdate() + datetime.timedelta(days=days)
+    return task_queryset().filter(due_date=target).exclude(status__in=_INACTIVE_STATUSES)
+
+
+def tasks_overdue():
+    """§7 scheduled job: active tasks already past their due date."""
+    today = timezone.localdate()
+    return task_queryset().filter(due_date__lt=today).exclude(status__in=_INACTIVE_STATUSES)
 
 
 def order_tasks(qs, ordering=None):

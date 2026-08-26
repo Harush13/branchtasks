@@ -1,0 +1,9 @@
+{{ notification.body }}
+
+Task: {{ notification.task.title }} ({{ notification.task.ref }})
+Branch: {{ notification.task.branch.name_en }}
+Status: {{ notification.task.get_status_display }}
+{% if notification.task.due_date %}Due: {{ notification.task.due_date }}{% endif %}
+
+--
+This is an automated message from BranchTasks. Manage your notifications in the app.

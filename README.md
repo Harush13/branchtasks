@@ -7,13 +7,23 @@ is the primary UI language. Full spec: `../CLAUDE_CODE_PROMPT.md`.
 
 ## Status
 
-**Phase 2 — Domain services.** `tasks/services.py` (create, assign,
-`change_status`, `add_update`, `attach_file`), `tasks/selectors.py` (filtering,
-overdue annotation, default ordering), `accounts/permissions.py` (shared role
-predicates), and the three immediate notification triggers from spec §7
-(`assigned`, `reassigned`, `urgent`) in `notifications/services.py`. No API, no
-HTML views yet — those are Phases 3–4. The scheduled `run_task_alerts` job,
-email, and the bell UI are Phase 5.
+**Phase 5 — Notifications.** `tasks/management/commands/run_task_alerts.py`
+sends the two scheduled §7 alerts (`due_soon` at exactly 2 days out,
+`overdue` for anything active past its due date, the latter also fanning out
+to every manager/admin) once a day via cron:
+
+```
+0 7 * * * cd /path/to/branchtasks && python manage.py run_task_alerts
+```
+
+Both the scheduled alerts and the three immediate triggers from Phase 2 now
+also send email through `notifications/services.py:send_notification_email`,
+gated on `EMAIL_ENABLED` (still off by default in dev — console backend).
+Idempotency (`tests/test_run_task_alerts.py::test_running_twice_is_idempotent`)
+proves the Phase 5 gate: running the job twice does not double any
+notification, because every call still goes through the same
+`get_or_create` in `notify()` that Phase 2's immediate triggers already used.
+Dashboard is Phase 6.
 
 ## Local setup (dev — SQLite)
 
@@ -97,6 +107,12 @@ Django cannot swap the user model afterward without dropping the database.
   open — §4 says no admin action may write `status` directly, only
   `change_status()` may. Still editable on *add*, since a new task's status
   is just its default `new`.
+- **Email fires for all five notification kinds, not just the two scheduled
+  ones**: §7 scopes "email via SMTP" to the notification engine as a whole,
+  not to `run_task_alerts` specifically, and `notify()` is the single choke
+  point both halves already shared for the DB row — routing email through
+  the same function (only on actual creation, not a `get_or_create` no-op)
+  meant no call site needed to know or care which channel fired.
 
 ## Commands
 

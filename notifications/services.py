@@ -1,8 +1,13 @@
 """
-Immediate notification triggers (spec §7, synchronous half). The scheduled
-`run_task_alerts` job (due_soon/overdue) is Phase 5 — this module only covers
-the three triggers that fire inline from tasks/services.py.
+Notification triggers (spec §7): the three immediate ones fire inline from
+tasks/services.py; the two scheduled ones (due_soon/overdue) fire once daily
+from `tasks/management/commands/run_task_alerts.py` (Phase 5). Both halves
+share `notify()`, so idempotency and the email channel are defined once.
 """
+
+from django.conf import settings
+from django.core.mail import send_mail
+from django.template.loader import render_to_string
 
 from accounts.models import User
 from accounts.permissions import is_manager
@@ -10,14 +15,40 @@ from accounts.permissions import is_manager
 from .models import Notification
 
 
+def send_notification_email(notification):
+    """
+    Best-effort email channel (spec §7), off by default in dev
+    (`EMAIL_ENABLED`). `fail_silently` because a dead SMTP server must never
+    roll back the in-app notification that was already committed — the bell
+    is the channel of record, email is a bonus.
+    """
+    if not settings.EMAIL_ENABLED or not notification.user.email:
+        return
+    context = {"notification": notification}
+    subject = render_to_string("notifications/email/notification_subject.txt", context).strip()
+    body = render_to_string("notifications/email/notification_body.txt", context)
+    send_mail(
+        subject,
+        body,
+        settings.DEFAULT_FROM_EMAIL,
+        [notification.user.email],
+        fail_silently=True,
+    )
+
+
 def notify(task, user, kind, body):
     """
     Wraps get_or_create on the UNIQUE(task, user, kind) constraint so a
     duplicate trigger (e.g. reassigning back to the same person) is a no-op
     instead of an IntegrityError. First notice for a given (task, user,
-    kind) wins; body is not updated on repeat.
+    kind) wins; body is not updated on repeat. Email only fires on the row
+    that was actually created, not on a no-op repeat.
     """
-    Notification.objects.get_or_create(task=task, user=user, kind=kind, defaults={"body": body})
+    notification, created = Notification.objects.get_or_create(
+        task=task, user=user, kind=kind, defaults={"body": body}
+    )
+    if created:
+        send_notification_email(notification)
 
 
 def notify_assigned(task, actor):

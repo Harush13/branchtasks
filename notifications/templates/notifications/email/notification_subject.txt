@@ -1,0 +1,1 @@
+[BranchTasks] {{ notification.task.ref }} — {{ notification.get_kind_display }}
