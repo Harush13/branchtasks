@@ -54,20 +54,36 @@ _EXPORT_HEADERS = [
 ]
 
 
+# Excel/Sheets treats a cell starting with any of these as a formula, not
+# text. `title`/`description` are free-text user input (everything else in
+# a row is server-controlled), so a title like `=cmd|'/c calc'!A1` would
+# execute on open — prefix with a leading apostrophe to force it to render
+# as literal text instead (CSV Formula Injection / CWE-1236).
+_FORMULA_TRIGGERS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _csv_safe(value):
+    text = "" if value is None else str(value)
+    return "'" + text if text.startswith(_FORMULA_TRIGGERS) else text
+
+
 def _export_row(task):
     return [
-        task.ref,
-        task.title,
-        task.branch.name_he,
-        task.category.name_he,
-        task.get_status_display(),
-        task.get_priority_display(),
-        task.assignee.full_name if task.assignee else "",
-        task.opened_by.full_name,
-        task.due_date.isoformat() if task.due_date else "",
-        task.created_at.isoformat(),
-        task.completed_at.isoformat() if task.completed_at else "",
-        "כן" if task.overdue else "לא",
+        _csv_safe(v)
+        for v in [
+            task.ref,
+            task.title,
+            task.branch.name_he,
+            task.category.name_he,
+            task.get_status_display(),
+            task.get_priority_display(),
+            task.assignee.full_name if task.assignee else "",
+            task.opened_by.full_name,
+            task.due_date.isoformat() if task.due_date else "",
+            task.created_at.isoformat(),
+            task.completed_at.isoformat() if task.completed_at else "",
+            "כן" if task.overdue else "לא",
+        ]
     ]
 
 

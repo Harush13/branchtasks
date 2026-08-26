@@ -59,3 +59,15 @@ class TestTaskExport:
         resp = member_client.get("/api/tasks/export")
         assert resp.status_code == 200
         assert resp["Content-Type"] == "text/csv"
+
+    @pytest.mark.parametrize("dangerous_title", ["=cmd|'/c calc'!A1", "+1+1", "-2+3", "@SUM(1)"])
+    def test_formula_like_title_is_neutralized(
+        self, member_client, branch, category, opener, dangerous_title
+    ):
+        """CSV Formula Injection (CWE-1236): a title starting with =/+/-/@
+        must not reach the file as a live formula for Excel/Sheets to run."""
+        make_task(branch, category, opener, title=dangerous_title)
+        resp = member_client.get("/api/tasks/export")
+        body = resp.content.decode("utf-8-sig")
+        assert f"'{dangerous_title}" in body
+        assert f",{dangerous_title}," not in body
