@@ -12,7 +12,8 @@
                 המשימות שלי
             </a>
             {% if user|can_view_dashboard %}
-            <a href="#" class="px-2 py-1 rounded-md whitespace-nowrap text-gray-400" title="בקרוב — שלב 6">
+            <a href="{% url 'tasks:dashboard' %}"
+               class="px-2 py-1 rounded-md whitespace-nowrap {% if request.resolver_match.url_name == 'dashboard' %}bg-blue-50 text-blue-700 font-semibold{% else %}text-gray-600{% endif %}">
                 לוח בקרה
             </a>
             {% endif %}

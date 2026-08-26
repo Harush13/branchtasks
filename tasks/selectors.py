@@ -6,10 +6,19 @@ Every read query for tasks (spec §12). §6's list endpoint parameters and the
 import datetime
 
 from django.db import connection
-from django.db.models import BooleanField, Case, Q, When
+from django.db.models import BooleanField, Case, Count, Q, When
 from django.utils import timezone
 
 from .models import Task
+
+# §8's breakdown dimensions that group by branch/category/priority, each
+# alongside status — same query shape, only the grouping field differs.
+# `assignee` and `status` get their own shape below and are not in this map.
+_BREAKDOWN_FIELDS = {
+    "branch": "branch__name_he",
+    "category": "category__name_he",
+    "priority": "priority",
+}
 
 _INACTIVE_STATUSES = [Task.Status.DONE, Task.Status.CANCELLED]
 
@@ -90,6 +99,97 @@ def tasks_overdue():
     """§7 scheduled job: active tasks already past their due date."""
     today = timezone.localdate()
     return task_queryset().filter(due_date__lt=today).exclude(status__in=_INACTIVE_STATUSES)
+
+
+def dashboard_counters():
+    """§8's four headline counters, one aggregate query."""
+    today = timezone.localdate()
+    active = ~Q(status__in=_INACTIVE_STATUSES)
+    return Task.objects.aggregate(
+        open=Count("id", filter=active),
+        closed=Count("id", filter=Q(status=Task.Status.DONE)),
+        overdue=Count("id", filter=active & Q(due_date__lt=today)),
+        urgent=Count("id", filter=active & Q(priority=Task.Priority.URGENT)),
+    )
+
+
+def dashboard_breakdown(by):
+    """
+    §8's breakdown endpoint. `branch`/`category`/`priority` share one shape
+    (dimension x status, active tasks only, for a stacked chart);
+    `status` and `assignee` each need their own shape, so they're not in
+    `_BREAKDOWN_FIELDS`. Raises ValueError on an unknown `by` — the view
+    turns that into a 400.
+    """
+    if by == "status":
+        return _breakdown_by_status()
+    if by == "assignee":
+        return _breakdown_by_assignee()
+    if by not in _BREAKDOWN_FIELDS:
+        raise ValueError(f"Unknown breakdown dimension: {by!r}")
+    field = _BREAKDOWN_FIELDS[by]
+    rows = (
+        Task.objects.exclude(status__in=_INACTIVE_STATUSES)
+        .values(field, "status")
+        .annotate(n=Count("id"))
+        .order_by(field, "status")
+    )
+    return [{"group": row[field], "status": row["status"], "n": row["n"]} for row in rows]
+
+
+def _breakdown_by_status():
+    """Whole-table status distribution — includes done/cancelled, since
+    that's the point of a status-distribution chart."""
+    rows = Task.objects.values("status").annotate(n=Count("id")).order_by("status")
+    return [{"status": row["status"], "n": row["n"]} for row in rows]
+
+
+def _breakdown_by_assignee():
+    """§8's 'load by assignee': open_tasks + overdue per person, busiest first."""
+    today = timezone.localdate()
+    rows = (
+        Task.objects.exclude(status__in=_INACTIVE_STATUSES)
+        .filter(assignee__isnull=False)
+        .values("assignee__full_name")
+        .annotate(
+            open_tasks=Count("id"),
+            overdue=Count("id", filter=Q(due_date__lt=today)),
+        )
+        .order_by("-open_tasks")
+    )
+    return [
+        {
+            "assignee": row["assignee__full_name"],
+            "open_tasks": row["open_tasks"],
+            "overdue": row["overdue"],
+        }
+        for row in rows
+    ]
+
+
+def needs_attention():
+    """
+    §8's live table: every active task that's Urgent OR overdue, sorted by
+    days-late descending. Day-count arithmetic is done in Python rather
+    than with ORM date-diff functions (portability isolated the same way
+    order_by_hebrew_name isolates its Postgres-only feature) — the result
+    set here is small by definition, so there's no N+1/perf concern.
+    """
+    today = timezone.localdate()
+    qs = (
+        annotate_overdue(task_queryset())
+        .exclude(status__in=_INACTIVE_STATUSES)
+        .filter(Q(priority=Task.Priority.URGENT) | Q(due_date__lt=today))
+    )
+
+    def days_late(task):
+        return (today - task.due_date).days if task.due_date and task.due_date < today else 0
+
+    tasks = list(qs)
+    for task in tasks:
+        task.days_late = days_late(task)
+    tasks.sort(key=lambda t: t.days_late, reverse=True)
+    return tasks
 
 
 def order_tasks(qs, ordering=None):

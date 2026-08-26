@@ -13,6 +13,15 @@ from core.serializers import BranchSerializer, CategorySerializer
 from .models import Attachment, Task, TaskUpdate
 
 
+class DashboardSummarySerializer(serializers.Serializer):
+    """§8's four headline counters. Read-only — this endpoint has no write side."""
+
+    open = serializers.IntegerField()
+    closed = serializers.IntegerField()
+    overdue = serializers.IntegerField()
+    urgent = serializers.IntegerField()
+
+
 class TaskListSerializer(serializers.ModelSerializer):
     """Read shape for GET /api/tasks. `overdue` is selectors.annotate_overdue's
     annotation, never a stored column (§3.3) — declared read-only here so it

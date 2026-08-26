@@ -23,7 +23,15 @@ Idempotency (`tests/test_run_task_alerts.py::test_running_twice_is_idempotent`)
 proves the Phase 5 gate: running the job twice does not double any
 notification, because every call still goes through the same
 `get_or_create` in `notify()` that Phase 2's immediate triggers already used.
-Dashboard is Phase 6.
+
+**Phase 6 — Dashboard.** `GET /api/dashboard/summary` and
+`GET /api/dashboard/breakdown?by=branch|assignee|status|priority|category`
+(manager/admin only, `tasks/api.py`), backed by three new
+`tasks/selectors.py` functions (`dashboard_counters`, `dashboard_breakdown`,
+`needs_attention`). The `/tasks/dashboard/` HTML screen renders the four
+counters (HTMX-polled every 60s via `/tasks/dashboard/counters/`), five
+Chart.js charts fed client-side from the breakdown endpoint, and the
+needs-attention table sorted by days-late. KPIs (§9) are Phase 7.
 
 ## Local setup (dev — SQLite)
 

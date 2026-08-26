@@ -8,7 +8,7 @@ HX-Request header is unnecessary — they're only ever wired to hx-post.
 """
 
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
@@ -17,13 +17,20 @@ from django.views import View
 from django.views.decorators.http import require_POST
 
 from accounts.models import User
+from accounts.permissions import can_view_dashboard
 from accounts.validators import ACTIVE_STATUSES
 from core.models import Branch
 
 from .filters import apply_query_params
 from .forms import TaskForm
 from .models import Task
-from .selectors import annotate_overdue, order_by_hebrew_name, task_queryset
+from .selectors import (
+    annotate_overdue,
+    dashboard_counters,
+    needs_attention,
+    order_by_hebrew_name,
+    task_queryset,
+)
 from .services import (
     add_update,
     assign_task,
@@ -147,6 +154,42 @@ class TaskCreateView(LoginRequiredMixin, View):
 
         task = create_task(request.user, **form.cleaned_data)
         return redirect("tasks:detail", ref=task.ref)
+
+
+class _ManagerOnlyMixin(LoginRequiredMixin, UserPassesTestMixin):
+    """
+    §5/§8: manager/admin only. `raise_exception` is a plain class attribute
+    on Django's shared `AccessMixin`, so `True` would also make
+    LoginRequiredMixin 403 an anonymous visitor instead of redirecting them
+    to login. Making it a property keyed on authentication state gives each
+    mixin the behavior it should have: redirect-to-login when logged out,
+    403 when logged in but the wrong role — matching the nav link already
+    being hidden for members.
+    """
+
+    @property
+    def raise_exception(self):
+        return self.request.user.is_authenticated
+
+    def test_func(self):
+        return can_view_dashboard(self.request.user)
+
+
+class DashboardView(_ManagerOnlyMixin, View):
+    def get(self, request):
+        return render(
+            request,
+            "tasks/dashboard.html",
+            {"counters": dashboard_counters(), "needs_attention": needs_attention()},
+        )
+
+
+class DashboardCountersView(_ManagerOnlyMixin, View):
+    """HTMX polling target (§8: refresh counters every 60s) — same partial
+    both on first render and on each poll, so the two can never drift."""
+
+    def get(self, request):
+        return render(request, "tasks/_dashboard_counters.html", {"counters": dashboard_counters()})
 
 
 @login_required

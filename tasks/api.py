@@ -5,19 +5,20 @@ tasks/filters.py + tasks/selectors.py, and every write calls straight into
 tasks/services.py — no business logic lives here.
 """
 
-from rest_framework import generics, mixins, status, viewsets
+from rest_framework import generics, mixins, status, views, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from accounts.api_permissions import CanDeleteAttachment, CanEditTask
+from accounts.api_permissions import CanDeleteAttachment, CanEditTask, IsManager
 
 from .filters import apply_query_params
 from .models import Attachment
-from .selectors import annotate_overdue, task_queryset
+from .selectors import annotate_overdue, dashboard_breakdown, dashboard_counters, task_queryset
 from .serializers import (
     AttachmentSerializer,
+    DashboardSummarySerializer,
     StatusChangeSerializer,
     TaskCreateSerializer,
     TaskDetailSerializer,
@@ -146,3 +147,25 @@ class AttachmentDestroyView(generics.DestroyAPIView):
 
     queryset = Attachment.objects.all()
     permission_classes = [IsAuthenticated, CanDeleteAttachment]
+
+
+class DashboardSummaryView(views.APIView):
+    """GET /api/dashboard/summary — manager/admin only (§5, §8)."""
+
+    permission_classes = [IsAuthenticated, IsManager]
+
+    def get(self, request):
+        return Response(DashboardSummarySerializer(dashboard_counters()).data)
+
+
+class DashboardBreakdownView(views.APIView):
+    """GET /api/dashboard/breakdown?by=branch|assignee|status|priority|category (§8)."""
+
+    permission_classes = [IsAuthenticated, IsManager]
+
+    def get(self, request):
+        by = request.query_params.get("by")
+        try:
+            return Response(dashboard_breakdown(by))
+        except ValueError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)

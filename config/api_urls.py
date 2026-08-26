@@ -1,4 +1,4 @@
-"""§6's /api/ surface. Dashboard endpoints deferred to Phase 6 (§8/§9)."""
+"""§6's /api/ surface. KPI endpoints (§9) deferred to Phase 7."""
 
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
@@ -6,7 +6,12 @@ from rest_framework.routers import DefaultRouter
 from accounts.views import LoginView, LogoutView
 from core.views import MetaView
 from notifications.views import NotificationViewSet
-from tasks.api import AttachmentDestroyView, TaskViewSet
+from tasks.api import (
+    AttachmentDestroyView,
+    DashboardBreakdownView,
+    DashboardSummaryView,
+    TaskViewSet,
+)
 
 router = DefaultRouter(trailing_slash=False)
 router.register("tasks", TaskViewSet, basename="task")
@@ -17,5 +22,7 @@ urlpatterns = [
     path("auth/logout", LogoutView.as_view(), name="api-logout"),
     path("meta", MetaView.as_view(), name="api-meta"),
     path("attachments/<int:pk>", AttachmentDestroyView.as_view(), name="api-attachment-delete"),
+    path("dashboard/summary", DashboardSummaryView.as_view(), name="api-dashboard-summary"),
+    path("dashboard/breakdown", DashboardBreakdownView.as_view(), name="api-dashboard-breakdown"),
     path("", include(router.urls)),
 ]

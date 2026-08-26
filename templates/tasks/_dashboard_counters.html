@@ -1,0 +1,24 @@
+{% comment %}
+§8's four headline counters, rendered both on first page load and on every
+60s HTMX poll (tasks:dashboard_counters) — the polling element must carry
+its own hx-get/hx-trigger so the swap re-establishes the next poll.
+{% endcomment %}
+<div id="dashboard-counters" class="grid grid-cols-2 gap-3"
+     hx-get="{% url 'tasks:dashboard_counters' %}" hx-trigger="every 60s" hx-swap="outerHTML">
+    <div class="bg-white border border-gray-200 rounded-lg p-3">
+        <p class="text-2xl font-bold text-gray-800">{{ counters.open }}</p>
+        <p class="text-xs text-gray-500">פתוחות</p>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-lg p-3">
+        <p class="text-2xl font-bold text-green-700">{{ counters.closed }}</p>
+        <p class="text-xs text-gray-500">הושלמו</p>
+    </div>
+    <div class="bg-white border rounded-lg p-3 {% if counters.overdue %}border-red-300 bg-red-50{% else %}border-gray-200{% endif %}">
+        <p class="text-2xl font-bold text-red-700">{{ counters.overdue }}</p>
+        <p class="text-xs text-gray-500">באיחור</p>
+    </div>
+    <div class="bg-white border rounded-lg p-3 {% if counters.urgent %}border-red-300 bg-red-50{% else %}border-gray-200{% endif %}">
+        <p class="text-2xl font-bold text-red-700">{{ counters.urgent }}</p>
+        <p class="text-xs text-gray-500">דחופות</p>
+    </div>
+</div>
