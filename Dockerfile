@@ -1,5 +1,6 @@
-# Production image. Not validated on this dev machine (no local Docker) —
-# exercise it for real at Phase 7 before deploying.
+# Production image. Reviewed by eye at Phase 7, still not built/run on this
+# dev machine (no local Docker) — build and run it for real on the target
+# host before deploying.
 FROM python:3.12-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \

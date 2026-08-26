@@ -40,6 +40,13 @@ class TestTaskList:
         body = resp.content.decode()
         assert done.ref not in body
 
+    def test_export_link_carries_active_filters(self, member, branch, category):
+        make_task(branch, category, member, status=Task.Status.NEW)
+        resp = logged_in(member).get("/tasks/", {"status": "new"})
+        body = resp.content.decode()
+        assert "/api/tasks/export?" in body
+        assert "status=new" in body
+
 
 class TestMyTasks:
     def test_shows_only_my_active_tasks(self, member, manager, branch, category):

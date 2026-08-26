@@ -12,7 +12,36 @@
 
 {% include "tasks/_dashboard_counters.html" %}
 
+<div class="grid grid-cols-2 gap-3 mt-4">
+    <div class="bg-white border border-gray-200 rounded-lg p-3">
+        <p id="kpi-avg-days" class="text-2xl font-bold text-gray-800">–</p>
+        <p class="text-xs text-gray-500">ימים לסגירה (90 יום אחרונים)</p>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-lg p-3">
+        <p id="kpi-on-time" class="text-2xl font-bold text-gray-800">–</p>
+        <p class="text-xs text-gray-500">סגירה במועד</p>
+    </div>
+</div>
+
 <div class="grid grid-cols-1 gap-4 mt-4">
+    <div class="bg-white border border-gray-200 rounded-lg p-3">
+        <h2 class="text-sm font-semibold mb-2">נפתחו מול נסגרו לפי חודש</h2>
+        <canvas id="chart-opened-closed" height="220"></canvas>
+    </div>
+    <div class="bg-white border border-gray-200 rounded-lg p-3 overflow-x-auto">
+        <h2 class="text-sm font-semibold mb-2">ביצועים לפי סניף</h2>
+        <table class="w-full text-sm text-start">
+            <thead>
+                <tr class="text-gray-500 text-xs">
+                    <th class="text-start py-1">סניף</th>
+                    <th class="text-start py-1">נסגרו</th>
+                    <th class="text-start py-1">פתוחות</th>
+                    <th class="text-start py-1">ממוצע ימים</th>
+                </tr>
+            </thead>
+            <tbody id="kpi-branch-table"></tbody>
+        </table>
+    </div>
     <div class="bg-white border border-gray-200 rounded-lg p-3">
         <h2 class="text-sm font-semibold mb-2">התפלגות סטטוס</h2>
         <canvas id="chart-status" height="220"></canvas>
@@ -132,6 +161,47 @@ document.addEventListener('DOMContentLoaded', function () {
     fetchBreakdown('category').then(rows => renderStackedByStatus('chart-category', rows, g => g));
     fetchBreakdown('priority').then(rows => renderStackedByStatus('chart-priority', rows, g => PRIORITY_LABELS[g]));
     fetchBreakdown('assignee').then(renderAssigneeLoad);
+
+    // §9 KPIs, exposed last (per §9's own heading note) — fetched once on
+    // load, not part of the 60s counters poll.
+    fetch('/api/dashboard/kpis').then(res => res.ok ? res.json() : null).then(kpis => {
+        if (!kpis) return;
+
+        document.getElementById('kpi-avg-days').textContent =
+            kpis.avg_days_to_close_90d === null ? 'אין נתונים' : kpis.avg_days_to_close_90d;
+        document.getElementById('kpi-on-time').textContent =
+            kpis.on_time_closure_rate_pct === null ? 'אין נתונים' : `${kpis.on_time_closure_rate_pct}%`;
+
+        const months = [...kpis.opened_vs_closed_by_month].reverse();
+        new Chart(document.getElementById('chart-opened-closed'), {
+            type: 'bar',
+            data: {
+                labels: months.map(m => m.month),
+                datasets: [
+                    { label: 'נפתחו', backgroundColor: '#9ca3af', data: months.map(m => m.opened) },
+                    { label: 'נסגרו', backgroundColor: '#22c55e', data: months.map(m => m.closed) },
+                ],
+            },
+            options: { scales: { y: { beginAtZero: true } } },
+        });
+
+        // Built with textContent, not innerHTML — branch names are
+        // admin-managed lookup values, but there's no reason to trust HTML
+        // through this path when a DOM-safe build is just as easy.
+        const tbody = document.getElementById('kpi-branch-table');
+        tbody.innerHTML = '';
+        kpis.performance_by_branch.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.className = 'border-t border-gray-100';
+            [row.branch, row.closed, row.open, row.avg_days === null ? '—' : row.avg_days].forEach(value => {
+                const td = document.createElement('td');
+                td.className = 'py-1';
+                td.textContent = value;
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+    });
 });
 </script>
 {% endblock %}

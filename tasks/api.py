@@ -5,6 +5,10 @@ tasks/filters.py + tasks/selectors.py, and every write calls straight into
 tasks/services.py — no business logic lives here.
 """
 
+import csv
+import io
+
+from django.http import HttpResponse
 from rest_framework import generics, mixins, status, views, viewsets
 from rest_framework.decorators import action
 from rest_framework.parsers import FormParser, MultiPartParser
@@ -15,7 +19,13 @@ from accounts.api_permissions import CanDeleteAttachment, CanEditTask, IsManager
 
 from .filters import apply_query_params
 from .models import Attachment
-from .selectors import annotate_overdue, dashboard_breakdown, dashboard_counters, task_queryset
+from .selectors import (
+    annotate_overdue,
+    dashboard_breakdown,
+    dashboard_counters,
+    kpi_summary,
+    task_queryset,
+)
 from .serializers import (
     AttachmentSerializer,
     DashboardSummarySerializer,
@@ -27,6 +37,38 @@ from .serializers import (
     TaskUpdateSerializer,
 )
 from .services import add_update, assign_task, attach_file, change_status, update_task_fields
+
+_EXPORT_HEADERS = [
+    "ref",
+    "title",
+    "branch",
+    "category",
+    "status",
+    "priority",
+    "assignee",
+    "opened_by",
+    "due_date",
+    "created_at",
+    "completed_at",
+    "overdue",
+]
+
+
+def _export_row(task):
+    return [
+        task.ref,
+        task.title,
+        task.branch.name_he,
+        task.category.name_he,
+        task.get_status_display(),
+        task.get_priority_display(),
+        task.assignee.full_name if task.assignee else "",
+        task.opened_by.full_name,
+        task.due_date.isoformat() if task.due_date else "",
+        task.created_at.isoformat(),
+        task.completed_at.isoformat() if task.completed_at else "",
+        "כן" if task.overdue else "לא",
+    ]
 
 
 class TaskViewSet(
@@ -120,6 +162,25 @@ class TaskViewSet(
             status=status.HTTP_201_CREATED,
         )
 
+    @action(detail=False, methods=["get"], url_path="export")
+    def export(self, request):
+        """
+        §7 (Phase 7 build note): CSV export using the same filters as the
+        list endpoint, no pagination — the whole point is the file leaves
+        the app. `utf-8-sig` (a BOM) is an Excel-specific requirement, not a
+        Django one: without it, Excel on Windows guesses cp1252 and renders
+        the Hebrew branch/category/status names as mojibake.
+        """
+        qs = apply_query_params(self.get_queryset(), request.query_params)
+        buffer = io.StringIO()
+        writer = csv.writer(buffer)
+        writer.writerow(_EXPORT_HEADERS)
+        for task in qs:
+            writer.writerow(_export_row(task))
+        response = HttpResponse(buffer.getvalue().encode("utf-8-sig"), content_type="text/csv")
+        response["Content-Disposition"] = 'attachment; filename="tasks.csv"'
+        return response
+
     @action(
         detail=True,
         methods=["post"],
@@ -169,3 +230,13 @@ class DashboardBreakdownView(views.APIView):
             return Response(dashboard_breakdown(by))
         except ValueError as exc:
             return Response({"detail": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+
+
+class DashboardKpisView(views.APIView):
+    """GET /api/dashboard/kpis — §9's four KPIs, manager/admin only like the
+    rest of the dashboard (§5). Exposed last, per §9's own heading note."""
+
+    permission_classes = [IsAuthenticated, IsManager]
+
+    def get(self, request):
+        return Response(kpi_summary())

@@ -6,7 +6,18 @@ Every read query for tasks (spec §12). §6's list endpoint parameters and the
 import datetime
 
 from django.db import connection
-from django.db.models import BooleanField, Case, Count, Q, When
+from django.db.models import (
+    Avg,
+    BooleanField,
+    Case,
+    Count,
+    DurationField,
+    ExpressionWrapper,
+    F,
+    Q,
+    When,
+)
+from django.db.models.functions import TruncMonth
 from django.utils import timezone
 
 from .models import Task
@@ -190,6 +201,97 @@ def needs_attention():
         task.days_late = days_late(task)
     tasks.sort(key=lambda t: t.days_late, reverse=True)
     return tasks
+
+
+# A `Task.completed_at - Task.created_at` duration expression, shared by the
+# two §9 KPIs that average it. Built once so both stay in lockstep.
+_CLOSE_DURATION = ExpressionWrapper(
+    F("completed_at") - F("created_at"), output_field=DurationField()
+)
+
+
+def kpi_avg_days_to_close(days=90):
+    """§9: average days to close, over tasks completed in the last `days`
+    days. `None` (not 0) when nothing closed in the window — a dashboard
+    showing '0.0 days' would misleadingly read as 'instant turnaround'."""
+    cutoff = timezone.now() - datetime.timedelta(days=days)
+    result = (
+        Task.objects.filter(status=Task.Status.DONE, completed_at__gte=cutoff)
+        .annotate(duration=_CLOSE_DURATION)
+        .aggregate(avg=Avg("duration"))
+    )
+    avg = result["avg"]
+    return round(avg.total_seconds() / 86400, 1) if avg is not None else None
+
+
+def kpi_opened_vs_closed_by_month(limit=12):
+    """§9: opened count and closed-by-now count, per calendar month of
+    `created_at` — a cohort view (closed count is of tasks *opened* that
+    month, not tasks *closed* that month), matching the spec's own SQL."""
+    rows = (
+        Task.objects.annotate(month=TruncMonth("created_at"))
+        .values("month")
+        .annotate(opened=Count("id"), closed=Count("id", filter=Q(status=Task.Status.DONE)))
+        .order_by("-month")[:limit]
+    )
+    return [
+        {"month": row["month"].date().isoformat(), "opened": row["opened"], "closed": row["closed"]}
+        for row in rows
+    ]
+
+
+def kpi_on_time_closure_rate():
+    """
+    §9: % of closed tasks completed on or before their due date, among
+    closed tasks that had one. Critical rule: `cancelled` is excluded from
+    both numerator and denominator — filtering to `status=DONE` already
+    does that, since cancelled never satisfies it.
+    """
+    done_with_due = Task.objects.filter(status=Task.Status.DONE, due_date__isnull=False)
+    total = done_with_due.count()
+    if not total:
+        return None
+    on_time = done_with_due.filter(completed_at__date__lte=F("due_date")).count()
+    return round(100 * on_time / total, 1)
+
+
+def kpi_performance_by_branch():
+    """§9: closed/open counts and average days-to-close per branch. Same
+    cancelled-exclusion rule as kpi_on_time_closure_rate — `closed` only
+    ever counts `status=DONE`, never cancelled."""
+    rows = (
+        Task.objects.annotate(duration=_CLOSE_DURATION)
+        .values("branch__name_he")
+        .annotate(
+            closed=Count("id", filter=Q(status=Task.Status.DONE)),
+            open=Count("id", filter=~Q(status__in=_INACTIVE_STATUSES)),
+            avg_duration=Avg("duration", filter=Q(status=Task.Status.DONE)),
+        )
+        .order_by("branch__name_he")
+    )
+    return [
+        {
+            "branch": row["branch__name_he"],
+            "closed": row["closed"],
+            "open": row["open"],
+            "avg_days": (
+                round(row["avg_duration"].total_seconds() / 86400, 1)
+                if row["avg_duration"] is not None
+                else None
+            ),
+        }
+        for row in rows
+    ]
+
+
+def kpi_summary():
+    """§9's four KPIs, bundled for the one `/api/dashboard/kpis` endpoint."""
+    return {
+        "avg_days_to_close_90d": kpi_avg_days_to_close(90),
+        "opened_vs_closed_by_month": kpi_opened_vs_closed_by_month(12),
+        "on_time_closure_rate_pct": kpi_on_time_closure_rate(),
+        "performance_by_branch": kpi_performance_by_branch(),
+    }
 
 
 def order_tasks(qs, ordering=None):

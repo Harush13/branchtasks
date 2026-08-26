@@ -1,4 +1,4 @@
-"""§6's /api/ surface. KPI endpoints (§9) deferred to Phase 7."""
+"""§6's /api/ surface."""
 
 from django.urls import include, path
 from rest_framework.routers import DefaultRouter
@@ -9,6 +9,7 @@ from notifications.views import NotificationViewSet
 from tasks.api import (
     AttachmentDestroyView,
     DashboardBreakdownView,
+    DashboardKpisView,
     DashboardSummaryView,
     TaskViewSet,
 )
@@ -24,5 +25,6 @@ urlpatterns = [
     path("attachments/<int:pk>", AttachmentDestroyView.as_view(), name="api-attachment-delete"),
     path("dashboard/summary", DashboardSummaryView.as_view(), name="api-dashboard-summary"),
     path("dashboard/breakdown", DashboardBreakdownView.as_view(), name="api-dashboard-breakdown"),
+    path("dashboard/kpis", DashboardKpisView.as_view(), name="api-dashboard-kpis"),
     path("", include(router.urls)),
 ]

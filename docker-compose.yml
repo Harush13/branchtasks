@@ -1,6 +1,7 @@
 # Production topology: web + db + nginx, one VPS, ~$10/mo (spec §2/§13).
-# Not validated locally — no Docker on this dev machine. Exercise for real
-# at Phase 7 before deploying.
+# Reviewed by eye at Phase 7 (fixed a missing POSTGRES_PASSWORD — see
+# .env.example) but still not run for real: no Docker on this dev machine.
+# Run `docker compose up` on the actual target host before relying on this.
 services:
   db:
     image: postgres:16

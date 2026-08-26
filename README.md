@@ -31,14 +31,25 @@ notification, because every call still goes through the same
 `needs_attention`). The `/tasks/dashboard/` HTML screen renders the four
 counters (HTMX-polled every 60s via `/tasks/dashboard/counters/`), five
 Chart.js charts fed client-side from the breakdown endpoint, and the
-needs-attention table sorted by days-late. KPIs (§9) are Phase 7.
+needs-attention table sorted by days-late.
+
+**Phase 7 — KPIs and deployment.** §9's four KPIs
+(`kpi_avg_days_to_close`, `kpi_opened_vs_closed_by_month`,
+`kpi_on_time_closure_rate`, `kpi_performance_by_branch` in
+`tasks/selectors.py`) behind `GET /api/dashboard/kpis` (manager/admin only),
+surfaced on the dashboard screen as two headline stats, an opened-vs-closed
+chart, and a performance-by-branch table. `GET /api/tasks/export` streams
+the filtered task list as CSV (same visibility as the list endpoint — any
+authenticated member), with an "ייצוא ל-CSV" link on the task list screen
+that carries the active filters. `scripts/backup.sh` covers nightly DB +
+media backups. See **Deployment** below for the runbook — reviewed by eye,
+not yet run for real (no Docker on this dev machine).
 
 ## Local setup (dev — SQLite)
 
 Neither Docker nor PostgreSQL is installed on the reference dev machine, so
 local development runs on SQLite. Docker Compose + Postgres 16 is the
-production target (`docker-compose.yml`) and gets validated for real at
-Phase 7.
+production target (`docker-compose.yml`) — see **Deployment** below.
 
 ```bash
 python -m venv .venv
@@ -121,6 +132,54 @@ Django cannot swap the user model afterward without dropping the database.
   point both halves already shared for the DB row — routing email through
   the same function (only on actual creation, not a `get_or_create` no-op)
   meant no call site needed to know or care which channel fired.
+- **`DJANGO_FORCE_HTTPS` env var, default `True`, added in Phase 7**: not in
+  the original spec. `nginx.conf` only ever terminated plain HTTP (no TLS
+  server block), but Phase 0's `prod.py` hardcoded `SECURE_SSL_REDIRECT =
+  True` anyway — deployed as originally written, every request would have
+  redirected to an `https://` nothing serves. The env var lets the runbook's
+  bring-up window run HTTP-only before certbot exists, then flips to `True`
+  (the default) once TLS is actually terminated.
+- **`POSTGRES_PASSWORD` added to `.env.example`, Phase 7**: `docker-compose.yml`'s
+  `db` service reads `${POSTGRES_PASSWORD}` via Compose's own `.env`
+  substitution (separate from the `env_file: .env` Compose hands to `web`),
+  but Phase 0 never added the variable — the `db` container would have
+  started with an empty password, inconsistent with whatever password is
+  embedded in `DATABASE_URL` for `web`. Both variables live in the same
+  `.env` file and must match.
+
+## Deployment
+
+Single VPS, Docker Compose (`web` + `db` + `nginx`), ~$10/mo (spec §2/§13).
+Reviewed by eye at Phase 7; not yet run for real — no Docker on this dev
+machine, so **run through this on the actual target host before trusting
+it**, and fix forward anything that doesn't match.
+
+1. Provision a VPS, install Docker + the Compose plugin, clone this repo.
+2. `cp .env.example .env` and fill in: `DJANGO_SECRET_KEY` (a fresh one —
+   never reuse the dev value), `DJANGO_SETTINGS_MODULE=config.settings.prod`,
+   `DJANGO_ALLOWED_HOSTS` (your domain), `POSTGRES_PASSWORD` and a matching
+   `DATABASE_URL` (`postgres://branchtasks:<same password>@db:5432/branchtasks`),
+   and `DJANGO_FORCE_HTTPS=False` for now (step 5 flips it).
+3. `docker compose up -d --build`. The `web` entrypoint runs `migrate` and
+   `collectstatic` automatically before gunicorn starts.
+4. `docker compose exec web python manage.py createsuperuser`. Optionally
+   `docker compose exec web env PYTHONUTF8=1 python manage.py seed_data` for
+   demo data — skip this on a real deployment.
+5. Point the domain's DNS at the VPS, then terminate TLS (e.g.
+   `certbot --nginx` against the `nginx` container, or a separate
+   Caddy/Traefik proxy in front of it — `nginx.conf` as committed has no TLS
+   server block, so this step is required, not optional). Once HTTPS
+   actually works, set `DJANGO_FORCE_HTTPS=True` in `.env` and
+   `docker compose up -d` again to pick it up.
+6. Add two cron entries on the host (spec §7, §13):
+   ```
+   0 7 * * * cd /path/to/branchtasks && docker compose exec -T web python manage.py run_task_alerts
+   0 3 * * * cd /path/to/branchtasks && ./scripts/backup.sh >> /var/log/branchtasks-backup.log 2>&1
+   ```
+7. Verify: the four-branch task lifecycle works end-to-end over HTTPS, the
+   dashboard loads for a manager account, and `run_task_alerts` /
+   `scripts/backup.sh` both succeed when run manually once before trusting
+   the cron entries.
 
 ## Commands
 

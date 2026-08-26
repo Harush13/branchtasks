@@ -1,7 +1,6 @@
 """
 Production settings: PostgreSQL 16 via DATABASE_URL, DEBUG off. Served by
-gunicorn behind nginx per docker-compose.yml. Unvalidated on this dev machine
-(no Docker/Postgres installed) — exercise this file for real at Phase 7.
+gunicorn behind nginx per docker-compose.yml.
 """
 
 from .base import *  # noqa: F401,F403
@@ -13,7 +12,14 @@ DATABASES = {
     "default": env.db("DATABASE_URL"),
 }
 
-SECURE_SSL_REDIRECT = True
-SESSION_COOKIE_SECURE = True
-CSRF_COOKIE_SECURE = True
-SECURE_HSTS_SECONDS = 60 * 60 * 24 * 7
+# nginx.conf only terminates plain HTTP — it has no TLS server block, so
+# forcing HTTPS before a domain + certificate exist (see README's deployment
+# runbook for the certbot step) would redirect every request to an
+# https:// nothing serves. DJANGO_FORCE_HTTPS defaults True for the steady
+# state; the runbook has the operator flip it False only for the brief
+# HTTP-only bring-up window.
+FORCE_HTTPS = env.bool("DJANGO_FORCE_HTTPS", default=True)
+SECURE_SSL_REDIRECT = FORCE_HTTPS
+SESSION_COOKIE_SECURE = FORCE_HTTPS
+CSRF_COOKIE_SECURE = FORCE_HTTPS
+SECURE_HSTS_SECONDS = 60 * 60 * 24 * 7 if FORCE_HTTPS else 0
