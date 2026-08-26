@@ -33,6 +33,22 @@ def test_admin_gets_dashboard(admin_user):
     assert logged_in(admin_user).get("/tasks/dashboard/").status_code == 200
 
 
+def test_dashboard_passes_status_and_priority_choices_to_chart_labels(manager):
+    """
+    Regression: DashboardView originally omitted status_choices/
+    priority_choices from its context, so the json_script blocks the
+    Chart.js legends read from serialized to an empty string and every
+    legend rendered as the literal word "undefined" client-side. Caught by
+    a live screenshot, not by an earlier status-code-only test.
+    """
+    resp = logged_in(manager).get("/tasks/dashboard/")
+    body = resp.content.decode()
+    assert 'id="status-choices"' in body
+    assert '["new", "' in body
+    assert 'id="priority-choices"' in body
+    assert '[1, "' in body
+
+
 def test_anonymous_redirected_to_login():
     resp = Client().get("/tasks/dashboard/")
     assert resp.status_code == 302

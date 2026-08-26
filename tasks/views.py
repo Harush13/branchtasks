@@ -180,7 +180,15 @@ class DashboardView(_ManagerOnlyMixin, View):
         return render(
             request,
             "tasks/dashboard.html",
-            {"counters": dashboard_counters(), "needs_attention": needs_attention()},
+            {
+                "counters": dashboard_counters(),
+                "needs_attention": needs_attention(),
+                # Fed to the Chart.js legends via json_script — without these
+                # the JS-side STATUS_LABELS/PRIORITY_LABELS maps are empty
+                # and every chart legend reads "undefined".
+                "status_choices": Task.Status.choices,
+                "priority_choices": Task.Priority.choices,
+            },
         )
 
 
