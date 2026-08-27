@@ -4,7 +4,7 @@
 {% block content %}
 
 <div class="mb-3">
-    <p class="text-xs text-gray-400"><span dir="ltr" class="font-mono">{{ task.ref }}</span> · {{ task.branch.name_he }} · {{ task.category.name_he }}</p>
+    <p class="text-xs text-gray-400"><span dir="ltr" class="font-mono">{{ task.ref }}</span> · {{ task.branch.name_he }}{% if task.branch.manager %} (מנהל: {{ task.branch.manager.full_name|default:task.branch.manager.username }}){% endif %} · {{ task.category.name_he }}</p>
     <h1 class="text-lg font-bold">{{ task.title }}</h1>
     {% if task.description %}<p class="text-sm text-gray-600 mt-1 whitespace-pre-line">{{ task.description }}</p>{% endif %}
 </div>

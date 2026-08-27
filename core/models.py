@@ -22,7 +22,14 @@ class LookupModel(models.Model):
 
 
 class Branch(LookupModel):
-    pass
+    manager = models.ForeignKey(
+        "accounts.User",
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name="managed_branches",
+        limit_choices_to={"role": "manager"},
+    )
 
 
 class Category(LookupModel):

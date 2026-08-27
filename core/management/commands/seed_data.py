@@ -69,6 +69,13 @@ class Command(BaseCommand):
                 user.save(update_fields=["password"])
             self._report("user", user, created)
 
+            if role == User.Role.MANAGER:
+                branch = branches[branch_idx]
+                if branch.manager_id != user.id:
+                    branch.manager = user
+                    branch.save(update_fields=["manager"])
+                    self._report("branch manager", branch, created=False)
+
     def _report(self, label, obj, created):
         verb = "created" if created else "exists"
         self.stdout.write(f"  {label}: {obj} ({verb})")

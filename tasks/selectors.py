@@ -40,7 +40,9 @@ DEFAULT_ORDERING = ("-priority", "due_date")
 def task_queryset():
     """Base queryset for every task list — always select_related to avoid
     the N+1 the spec explicitly calls out."""
-    return Task.objects.select_related("branch", "category", "assignee", "opened_by")
+    return Task.objects.select_related(
+        "branch", "branch__manager", "category", "assignee", "opened_by"
+    )
 
 
 def annotate_overdue(qs):
