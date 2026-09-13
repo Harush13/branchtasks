@@ -4,7 +4,7 @@ gunicorn behind nginx per docker-compose.yml.
 """
 
 from .base import *  # noqa: F401,F403
-from .base import MIDDLEWARE, env
+from .base import env
 
 DEBUG = False
 
@@ -12,18 +12,14 @@ DATABASES = {
     "default": env.db("DATABASE_URL"),
 }
 
-# nginx.conf serves static files in the Docker deployment; serverless
-# platforms (Vercel) have no nginx in front, so whitenoise serves
-# STATIC_ROOT directly from the WSGI app instead.
-MIDDLEWARE = [
-    "django.middleware.security.SecurityMiddleware",
-    "whitenoise.middleware.WhiteNoiseMiddleware",
-    *MIDDLEWARE[1:],
-]
-STORAGES = {
-    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
-    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
-}
+# nginx.conf serves static files in the Docker deployment. On Vercel,
+# vercel.json's @vercel/static-build step collects them into a separate
+# build artifact and routes /static/* straight to it at the platform
+# level — the WSGI function (this settings module) never serves them
+# itself, so no whitenoise/static storage config is needed here. (An
+# earlier attempt wired whitenoise into this function, but STATIC_ROOT
+# doesn't exist inside the @vercel/python function's own build output —
+# that's a separate artifact from @vercel/static-build's.)
 
 # nginx.conf only terminates plain HTTP — it has no TLS server block, so
 # forcing HTTPS before a domain + certificate exist (see README's deployment
