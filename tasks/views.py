@@ -44,7 +44,9 @@ PAGE_SIZE = 25
 
 
 def _assignable_users():
-    return order_by_hebrew_name(User.objects.filter(is_active=True), "full_name")
+    return order_by_hebrew_name(
+        User.objects.filter(is_active=True, is_superuser=False), "full_name"
+    )
 
 
 def _active_branches():

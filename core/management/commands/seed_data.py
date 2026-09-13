@@ -22,14 +22,19 @@ CATEGORIES = [
     ("אחר", "Other"),
 ]
 
-# (username, full_name, role, branch index into BRANCHES)
+# (username, full_name, role, branch index into BRANCHES, password override or None)
 DEMO_USERS = [
-    ("member1", "נועה כהן", User.Role.MEMBER, 0),
-    ("member2", "איתי לוי", User.Role.MEMBER, 1),
-    ("member3", "מיכל אברהם", User.Role.MEMBER, 2),
-    ("manager1", "דניאל פרץ", User.Role.MANAGER, 0),
-    ("manager2", "יעל שפירא", User.Role.MANAGER, 3),
-    ("admin1", "רון גולן", User.Role.ADMIN, 0),
+    ("member1", "נועה כהן", User.Role.MEMBER, 0, None),
+    ("member2", "איתי לוי", User.Role.MEMBER, 1, None),
+    ("member3", "מיכל אברהם", User.Role.MEMBER, 2, None),
+    ("manager1", "אבי אשכנזי", User.Role.MANAGER, 0, None),
+    ("manager2", "יניב הרוש", User.Role.MANAGER, 1, None),
+    ("manager3", "שמוליק טחן", User.Role.MANAGER, 2, None),
+    ("manager4", "איתי טננבאום", User.Role.MANAGER, 3, None),
+    ("manager5", "עידן עבאדי", User.Role.MANAGER, 0, None),
+    ("manager6", "רעות טננבאום", User.Role.MANAGER, 1, None),
+    ("manager7", "כרמל נר גאון", User.Role.MANAGER, 2, None),
+    ("ADMIN", "מנהל כללי", User.Role.ADMIN, 0, "12345678"),
 ]
 DEMO_PASSWORD = "demo1234"  # dev only — never used against DATABASE_URL in prod
 
@@ -54,7 +59,7 @@ class Command(BaseCommand):
             self._report("category", category, created)
 
         branches = list(Branch.objects.order_by("sort_order"))
-        for username, full_name, role, branch_idx in DEMO_USERS:
+        for username, full_name, role, branch_idx, password in DEMO_USERS:
             user, created = User.objects.get_or_create(
                 username=username,
                 defaults={
@@ -65,7 +70,7 @@ class Command(BaseCommand):
                 },
             )
             if created:
-                user.set_password(DEMO_PASSWORD)
+                user.set_password(password or DEMO_PASSWORD)
                 user.save(update_fields=["password"])
             self._report("user", user, created)
 

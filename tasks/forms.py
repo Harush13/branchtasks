@@ -4,10 +4,14 @@ validate shape only, the same division Phase 3's serializers keep.
 """
 
 from django import forms
+from django.contrib.auth import get_user_model
 
 from core.models import Branch, Category
 
 from .models import Task, TaskUpdate
+from .selectors import order_by_hebrew_name
+
+User = get_user_model()
 
 _INPUT = (
     "w-full rounded-lg border border-gray-300 px-3 py-2 text-base "
@@ -48,6 +52,9 @@ class TaskForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         self.fields["description"].required = False
         self.fields["assignee"].required = False
+        self.fields["assignee"].queryset = order_by_hebrew_name(
+            User.objects.filter(is_active=True, is_superuser=False), "full_name"
+        )
         self.fields["branch"].queryset = Branch.objects.filter(is_active=True)
         self.fields["category"].queryset = Category.objects.filter(is_active=True)
         if home_branch is not None:
