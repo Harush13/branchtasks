@@ -4,12 +4,25 @@ gunicorn behind nginx per docker-compose.yml.
 """
 
 from .base import *  # noqa: F401,F403
-from .base import env
+from .base import MIDDLEWARE, env
 
 DEBUG = False
 
 DATABASES = {
     "default": env.db("DATABASE_URL"),
+}
+
+# nginx.conf serves static files in the Docker deployment; serverless
+# platforms (Vercel) have no nginx in front, so whitenoise serves
+# STATIC_ROOT directly from the WSGI app instead.
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
+    *MIDDLEWARE[1:],
+]
+STORAGES = {
+    "default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
 }
 
 # nginx.conf only terminates plain HTTP — it has no TLS server block, so
